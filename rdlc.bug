@@ -1,0 +1,19 @@
+myProperty:
+
+
+interest  --> 10 * interest   fixed
+
+*Earnings   actualAmount - amount --> repaidAmount-amount     fixed
+
+predictEarnings  repaidAmount -amount  --> amount * interest *0.01;  fixed
+
+numericeURL,protocolURL missing  --> query from product table   fixed
+
+
+borrowOrder:
+	
+	userId not filtered ---> fixed
+
+	*Money not exchange unit --> *Money*10000*100
+	predictEarnings not exchanged --> predictEarnings*10
+	float --> int NPE   ---> fixed

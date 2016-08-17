@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.expocms.server.db.dao.MyPropertyMapper">
+  <!-- cache type="org.mybatis.caches.ehcache.LoggingEhcache"/ -->
+  <select id="getAllPropertyValue" resultType="java.lang.Long">
+      SELECT totalAssets as allProperty from rd_appuser where ids = #{no_}
+  </select>
+  <select id="getYesterdayEarnings" resultType="java.lang.Long">
+    SELECT
+      sum(repaidAmount) - sum(amount) as yesterdayEarnings
+    FROM
+      rd_order
+    WHERE
+      TO_DAYS( NOW( ) ) - TO_DAYS( orderTransferTime) = 1
+    and
+      appUserID = #{no_}
+    and
+      repayStatus = '2'
+  </select>
+  <select id="getAllEarnings" resultType="java.lang.Long">
+    SELECT
+      sum(repaidAmount) - sum(amount) as allEarnings
+      FROM
+        rd_order
+      WHERE appUserID = #{no_} and repayStatus = '2'
+  </select>
+  <select id="getRedeemItemEntityList" resultType="com.expocms.server.response.types.impl.RedeemItem">
+      SELECT
+        o.ids as orderId,
+        p.ids as productId,
+        o.repaidAmount as currentPoperty,
+        (o.repaidAmount - o.amount) as allEarnings,
+        (o.amount) as principal,
+        round(o.amount*o.interest*o.duration/365/100) as predictEarnings,
+        o.interestStartDate as valueDateDB,
+        o.interestEndDate as expireDateDB,
+        o.predictRepayDateTime as predictGetTimeDB,
+        p.interest*10 as predictYearEarnings,
+        o.orderCreateTime as buyTimeDB,
+        o.bankName as bankName,
+        o.bankCardNo as bankCard,
+        concat(p.productName, '第', p.series, '期') as productName,
+        o.status as orderStatus
+      FROM
+        rd_order o,
+        rd_product p,
+        rd_appuser a
+      WHERE
+        o.appUserID = #{userId_}
+        and o.status = 3
+        and o.productIds = p.ids
+        and o.appUserID = a.ids
+        order by o.orderCreateTime desc
+  </select>
+  <select id="getAlreadybuyItemEntityList" resultType="com.expocms.server.response.types.impl.AlreadyBuyItem">
+      SELECT
+        o.ids as orderId,
+        p.ids as productId,
+        o.repaidAmount as currentPoperty,
+        (o.repaidAmount - o.amount) as allEarnings,
+        (o.amount) as principal,
+        round(o.amount*o.interest*o.duration/365/100) as predictEarnings,
+        o.interestStartDate as valueDateDB,
+        o.interestEndDate as expireDateDB,
+        o.predictRepayDateTime as predictGetTimeDB,
+        p.interest*10 as predictYearEarnings,
+        o.orderCreateTime as buyTimeDB,
+        o.bankName as bankName,
+        o.bankCardNo as bankCard,
+        concat(p.productName, '第', p.series, '期') as productName,
+        o.status as orderStatus
+      FROM
+        rd_order o,
+        rd_product p,
+        rd_appuser a
+      WHERE
+        o.appUserID = #{userId_}
+        and (o.status = 1 or o.status = 2)
+        and o.productIds = p.ids
+        and o.appUserID = a.ids
+        order by o.orderCreateTime desc
+  </select>
+</mapper>

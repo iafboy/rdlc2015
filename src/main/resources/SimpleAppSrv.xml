@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:task="http://www.springframework.org/schema/task" 
+	xmlns:ehcache="http://ehcache-spring-annotations.googlecode.com/svn/schema/ehcache-spring"
+	default-lazy-init="true" xmlns:aop="http://www.springframework.org/schema/aop"
+	xsi:schemaLocation="http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.0.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+		http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.0.xsd 
+		http://www.springframework.org/schema/task http://www.springframework.org/schema/task/spring-task-4.0.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.0.xsd 
+		http://ehcache-spring-annotations.googlecode.com/svn/schema/ehcache-spring 
+      	http://ehcache-spring-annotations.googlecode.com/svn/schema/ehcache-spring/ehcache-spring-1.2.xsd">
+	<context:annotation-config />
+	<context:component-scan base-package="com.expocms.server"
+		use-default-filters="true">
+		<context:include-filter type="regex"
+			expression="com.expocms.server.actions.impl.*Action" />
+		<context:include-filter type="regex"
+			expression="com.expocms.server.db.dao.impl.*" />
+		<context:include-filter type="regex" expression="com.expocms.server.core.impl.*"/>
+	</context:component-scan>
+	<task:scheduled-tasks>
+		<task:scheduled ref="redPackageSchedule" method="scanExpiredRedPackage" cron="0/5 * * * * ?"/>
+	</task:scheduled-tasks>
+	<bean
+		class="org.springframework.beans.factory.annotation.RequiredAnnotationBeanPostProcessor" />
+	<bean id="propertyConfigurer"
+		class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<property name="ignoreUnresolvablePlaceholders" value="true" />
+		<property name="locations">
+			<list>
+				<value>classpath:simpleAppSrvCfg.cfg</value>
+				<value>classpath:druidpool.properties</value>
+			</list>
+		</property>
+	</bean>
+	<bean id="configproperties"
+		class="org.springframework.beans.factory.config.PropertiesFactoryBean">
+		<property name="locations">
+			<list>
+				<value>classpath:simpleAppSrvCfg.cfg</value>
+				<value>classpath:druidpool.properties</value>
+				<value>classpath:simpleAppSrvCfg.private</value>
+			</list>
+		</property>
+	</bean>
+	<bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource"
+		init-method="init" destroy-method="close">
+		<property name="url" value="${druid.connection.url}" />
+		<property name="username" value="${druid.connection.username}" />
+		<property name="password" value="${druid.connection.password}" />
+		<property name="maxActive" value="${druid.maxActive}" />
+		<property name="initialSize" value="${druid.initialSize}" />
+		<property name="maxWait" value="${druid.maxWait}" />
+		<property name="minIdle" value="${druid.minIdle}" />
+		<property name="timeBetweenEvictionRunsMillis" value="${druid.timeBetweenEvictionRunsMillis}" />
+		<property name="minEvictableIdleTimeMillis" value="${druid.minEvictableIdleTimeMillis}" />
+		<property name="filters" value="${druid.filters}" />
+		<property name="validationQuery" value="${druid.validationQuery}" />
+		<property name="testWhileIdle" value="${druid.testWhileIdle}" />
+		<property name="testOnBorrow" value="${druid.testOnBorrow}" />
+		<property name="testOnReturn" value="${druid.testOnReturn}" />
+		<property name="poolPreparedStatements" value="${druid.poolPreparedStatements}" />
+		<property name="maxPoolPreparedStatementPerConnectionSize"
+			value="${druid.maxPoolPreparedStatementPerConnectionSize}" />
+		<property name="removeAbandoned" value="${druid.removeAbandoned}" />
+		<property name="removeAbandonedTimeout" value="${druid.removeAbandonedTimeout}" />
+		<property name="logAbandoned" value="${druid.logAbandoned}" />
+	</bean>
+	
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="dataSource" />
+		<property name="mapperLocations"
+			value="classpath*:com/expocms/server/db/mapper/*.xml" />
+	</bean>
+	<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+		<property name="basePackage" value="com.expocms.server.db.dao" />
+		<property name="sqlSessionFactoryBeanName" value="sqlSessionFactory" />
+	</bean>
+	<bean id="transactionManager"
+		class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource" />
+	</bean>
+	<!-- 拦截器方式配置事物 -->
+	<tx:advice id="transactionAdvice" transaction-manager="transactionManager">
+		<tx:attributes>
+			<!-- 指定哪些方法需要加入事务，这里懒惰一下全部加入，可以使用通配符来只加入需要的方法 -->
+			<tx:method name="*" propagation="REQUIRED" rollback-for="java.lang.Exception" />
+		</tx:attributes>
+	</tx:advice>
+	<!-- 拦截事物切入点 -->
+	<aop:config expose-proxy="true" proxy-target-class="true">
+		<aop:pointcut id="transactionPointcut"
+					  expression="execution(* com.expocms.server.request.handlers.inf..*.*(..))" />
+		<aop:advisor advice-ref="transactionAdvice" pointcut-ref="transactionPointcut" />
+	</aop:config>
+
+	<tx:annotation-driven transaction-manager="transactionManager" />
+
+
+
+
+	<ehcache:annotation-driven cache-manager="ehCacheManager" />
+	<bean id="ehCacheManager" class="org.springframework.cache.ehcache.EhCacheManagerFactoryBean">
+     <property name="configLocation" value="classpath:ehcache.xml" />
+    </bean>
+    <bean id="authCodeCacheService" class="com.expocms.server.cache.AuthCodeCacheSerivce"></bean>  
+</beans>
